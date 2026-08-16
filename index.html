@@ -174,6 +174,16 @@
     font-size: 12.5px;
     font-style: italic;
   }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 14px;
+    font-size: 13px;
+    font-weight: 550;
+    cursor: pointer;
+  }
+  .checkbox-row input { cursor: pointer; }
 
   .output-toolbar {
     display: flex;
@@ -283,6 +293,11 @@
         <div id="availableCols" class="chip-list"></div>
         <ol id="stageList"></ol>
         <div id="emptyStageMsg">No stages selected yet.</div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="separateNodesCheckbox">
+          Keep repeated labels separate per branch
+        </label>
+        <div class="hint">Off (default): rows that share the same value at a stage (e.g. "Blue") merge into one node. On: each incoming path gets its own node — a value never re-merges with a different branch downstream.</div>
       </div>
       <div>
         <h3 style="margin-top:0;">Quantity column</h3>
@@ -349,7 +364,8 @@
     valueCol: null,
     nodes: [],
     links: [],
-    style: 'gradient'
+    style: 'gradient',
+    separateNodes: false
   };
 
   var els = {
@@ -362,6 +378,7 @@
     availableCols: document.getElementById('availableCols'),
     stageList: document.getElementById('stageList'),
     emptyStageMsg: document.getElementById('emptyStageMsg'),
+    separateNodesCheckbox: document.getElementById('separateNodesCheckbox'),
     valueSelect: document.getElementById('valueSelect'),
     generateBtn: document.getElementById('generateBtn'),
     outputPanel: document.getElementById('outputPanel'),
@@ -578,7 +595,7 @@
 
   // ---------- Building the node/link graph ----------
 
-  function buildGraph(rows, stageCols, valueCol) {
+  function buildGraph(rows, stageCols, valueCol, separateNodes) {
     var nodeIndex = {};
     var nodes = [];
     var linkIndex = {};
@@ -595,13 +612,15 @@
       }
       if (!value || value <= 0 || isNaN(value)) { skipped++; return; }
 
+      var pathId = null;
       for (var i = 0; i < stageCols.length - 1; i++) {
         var srcLabelRaw = row[stageCols[i]];
         var tgtLabelRaw = row[stageCols[i + 1]];
         var srcLabel = (srcLabelRaw && srcLabelRaw.trim()) || '(blank)';
         var tgtLabel = (tgtLabelRaw && tgtLabelRaw.trim()) || '(blank)';
-        var srcId = i + ':' + srcLabel;
-        var tgtId = (i + 1) + ':' + tgtLabel;
+        var srcId = (i === 0) ? (i + ':' + srcLabel) : pathId;
+        var tgtId = separateNodes ? (srcId + '→' + (i + 1) + ':' + tgtLabel) : ((i + 1) + ':' + tgtLabel);
+        pathId = tgtId;
 
         if (!(srcId in nodeIndex)) {
           nodeIndex[srcId] = nodes.length;
@@ -634,6 +653,8 @@
     var padding = 8;
     var labelMargin = 130;
 
+    nodes.forEach(function (n, i) { n._idx = i; });
+
     var stages = {};
     nodes.forEach(function (n) { (stages[n.stage] = stages[n.stage] || []).push(n); });
     var stageIndices = Object.keys(stages).map(Number).sort(function (a, b) { return a - b; });
@@ -651,9 +672,9 @@
       nodes[l.source].value += l.value;
       nodes[l.target].value += l.value;
     });
-    nodes.forEach(function (n) {
-      var out = links.filter(function (l) { return l.source === nodes.indexOf(n); }).reduce(function (s, l) { return s + l.value; }, 0);
-      var inc = links.filter(function (l) { return l.target === nodes.indexOf(n); }).reduce(function (s, l) { return s + l.value; }, 0);
+    nodes.forEach(function (n, idx) {
+      var out = links.filter(function (l) { return l.source === idx; }).reduce(function (s, l) { return s + l.value; }, 0);
+      var inc = links.filter(function (l) { return l.target === idx; }).reduce(function (s, l) { return s + l.value; }, 0);
       n.value = Math.max(out, inc);
     });
 
@@ -667,8 +688,37 @@
     var availableHeight = Math.max(height - padding * (maxNodesInStage - 1), maxNodesInStage);
     var scale = maxTotal > 0 ? availableHeight / maxTotal : 1;
 
-    stageIndices.forEach(function (s) {
-      var stageNodes = stages[s].slice().sort(function (a, b) { return b.value - a.value; });
+    var incomingByTarget = {};
+    links.forEach(function (l) { (incomingByTarget[l.target] = incomingByTarget[l.target] || []).push(l); });
+
+    stageIndices.forEach(function (s, stageIdx) {
+      var stageNodes = stages[s].slice();
+
+      if (stageIdx === 0) {
+        // Leftmost stage has no feeder nodes to align to — order by size.
+        stageNodes.sort(function (a, b) { return b.value - a.value; });
+      } else {
+        // Later stages align to the (already-positioned) nodes that feed them,
+        // using each node's value-weighted average feeder position (barycenter).
+        stageNodes.forEach(function (n) {
+          var incoming = incomingByTarget[n._idx] || [];
+          if (incoming.length) {
+            var weightedSum = 0, totalWeight = 0;
+            incoming.forEach(function (l) {
+              var src = nodes[l.source];
+              weightedSum += ((src.y0 + src.y1) / 2) * l.value;
+              totalWeight += l.value;
+            });
+            n._sortKey = weightedSum / totalWeight;
+          } else {
+            n._sortKey = Infinity;
+          }
+        });
+        stageNodes.sort(function (a, b) {
+          return (a._sortKey - b._sortKey) || (b.value - a.value);
+        });
+      }
+
       var usedHeight = stageNodes.reduce(function (sum, n) { return sum + Math.max(n.value * scale, 1); }, 0) + padding * (stageNodes.length - 1);
       var cursor = Math.max((height - usedHeight) / 2, 0);
       stageNodes.forEach(function (n) {
@@ -701,19 +751,27 @@
       incomingByNode[i].sort(function (a, b) { return nodes[a.source].y0 - nodes[b.source].y0; });
     });
 
-    links.forEach(function (l) {
-      var srcNode = nodes[l.source];
-      var tgtNode = nodes[l.target];
-      var h = Math.max(l.value * scale, 1);
-      l.width = h;
-      l.y0 = srcNode._sy + h / 2;
-      srcNode._sy += h;
-      l.y1 = tgtNode._ty + h / 2;
-      tgtNode._ty += h;
-      l.x0 = srcNode.x1;
-      l.x1 = tgtNode.x0;
-      l.sourceColor = srcNode.color;
-      l.targetColor = tgtNode.color;
+    // Walk each node's outgoing/incoming links in their sorted (non-crossing) order —
+    // NOT the raw links array order — so a node's own ribbons stack in the same order
+    // as the nodes they connect to.
+    nodes.forEach(function (n, i) {
+      outgoingByNode[i].forEach(function (l) {
+        var h = Math.max(l.value * scale, 1);
+        l.width = h;
+        l.x0 = n.x1;
+        l.y0 = n._sy + h / 2;
+        n._sy += h;
+        l.sourceColor = n.color;
+      });
+    });
+    nodes.forEach(function (n, i) {
+      incomingByNode[i].forEach(function (l) {
+        var h = Math.max(l.value * scale, 1);
+        l.x1 = n.x0;
+        l.y1 = n._ty + h / 2;
+        n._ty += h;
+        l.targetColor = n.color;
+      });
     });
 
     return { nodeWidth: nodeWidth, stageCount: stageCount };
@@ -740,7 +798,7 @@
   }
 
   function render() {
-    var graph = buildGraph(state.rows, state.stageCols, state.valueCol);
+    var graph = buildGraph(state.rows, state.stageCols, state.valueCol, state.separateNodes);
     if (!graph.links.length) {
       setStatus('No usable rows for the selected columns (check the value column).', true);
       return;
@@ -1008,6 +1066,10 @@
 
   els.valueSelect.addEventListener('change', function () {
     state.valueCol = els.valueSelect.value || null;
+  });
+
+  els.separateNodesCheckbox.addEventListener('change', function () {
+    state.separateNodes = els.separateNodesCheckbox.checked;
   });
 
   els.generateBtn.addEventListener('click', function () {
