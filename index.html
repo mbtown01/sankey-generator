@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sankey Diagram Generator</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page: #f3f2ef;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --gridline: #e1e0d9;
+    --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6;
+    --accent-hover: #1c5cab;
+    --danger: #e34948;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .app {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header h1 {
+    font-size: 22px;
+    font-weight: 650;
+    margin: 0 0 4px;
+  }
+  header p {
+    color: var(--text-secondary);
+    margin: 0 0 24px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  section.panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  h3 {
+    font-size: 13px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    margin: 0 0 10px;
+  }
+  .hint {
+    color: var(--text-muted);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 12px;
+  }
+  textarea#csvInput {
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+    border: 1px solid var(--gridline);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--surface-1);
+  }
+  textarea#csvInput:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .input-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 550;
+    border-radius: 7px;
+    padding: 8px 14px;
+    border: 1px solid var(--gridline);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  button:hover { background: #f4f3f0; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  #parseStatus { font-size: 12.5px; color: var(--text-secondary); }
+  #parseStatus.error { color: var(--danger); }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 780px) {
+    .config-grid { grid-template-columns: 1fr; }
+  }
+  .chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .chip {
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--gridline);
+    background: var(--surface-1);
+    cursor: pointer;
+    color: var(--text-primary);
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  ol#stageList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  ol#stageList li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--page);
+    border: 1px solid var(--gridline);
+    border-radius: 7px;
+    padding: 6px 8px 6px 12px;
+    font-size: 13px;
+  }
+  ol#stageList li .stage-index {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    width: 16px;
+  }
+  ol#stageList li .stage-name { flex: 1; font-weight: 550; }
+  ol#stageList li button {
+    padding: 3px 7px;
+    font-size: 12px;
+    line-height: 1;
+  }
+  select#valueSelect {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--gridline);
+    font-size: 13px;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  #emptyStageMsg {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-style: italic;
+  }
+
+  .output-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .output-toolbar .spacer { flex: 1; }
+  #summaryText { font-size: 13px; color: var(--text-secondary); }
+  #downloadStatus { font-size: 12.5px; color: var(--text-secondary); }
+  #downloadStatus.error { color: var(--danger); }
+  #chartWrap {
+    width: 100%;
+    overflow-x: auto;
+    background: #fcfcfb;
+    border: 1px solid var(--gridline);
+    border-radius: 8px;
+  }
+  svg#sankeySvg { display: block; width: 100%; height: auto; }
+
+  .sankey-node { stroke: #fcfcfb; stroke-width: 1.5; }
+  .sankey-link { fill: none; }
+  .sankey-link:hover { filter: brightness(0.92); }
+  text.node-label, text.node-value {
+    paint-order: stroke;
+    stroke: #fcfcfb;
+    stroke-width: 4px;
+    stroke-linejoin: round;
+  }
+  text.node-label { font-size: 12px; font-weight: 550; fill: #0b0b0b; }
+  text.node-value { font-size: 10.5px; fill: #52514e; }
+
+  table#dataTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table#dataTable th, table#dataTable td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  table#dataTable td:last-child, table#dataTable th:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  table#dataTable th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #0b0b0b;
+    color: #fff;
+    font-size: 12.5px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    line-height: 1.4;
+    max-width: 260px;
+    z-index: 50;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Sankey Diagram Generator</h1>
+    <p>Paste CSV (or tab-separated) data, choose the columns that define each flow stage, and generate a colorful Sankey diagram you can drop straight into a deck. Everything runs locally in your browser — nothing is uploaded anywhere.</p>
+  </header>
+
+  <section class="panel">
+    <h3>1. Data</h3>
+    <textarea id="csvInput" placeholder="Paste CSV data here, including a header row…"></textarea>
+    <div class="input-actions">
+      <button id="loadSampleBtn">Load sample data</button>
+      <button id="uploadBtn">Upload CSV file</button>
+      <input type="file" id="fileInput" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden>
+      <span id="parseStatus"></span>
+    </div>
+  </section>
+
+  <section class="panel" id="configPanel" hidden>
+    <h3>2. Flow columns</h3>
+    <div class="config-grid">
+      <div>
+        <div class="hint" style="margin-bottom:8px;">Click columns below, in order, to build the flow path (e.g. Region → Product → Channel). At least 2 required.</div>
+        <div id="availableCols" class="chip-list"></div>
+        <ol id="stageList"></ol>
+        <div id="emptyStageMsg">No stages selected yet.</div>
+      </div>
+      <div>
+        <h3 style="margin-top:0;">Flow value</h3>
+        <select id="valueSelect"></select>
+        <div class="hint">Numeric column that sizes each flow's thickness. Leave as "Count rows" to size by number of matching rows.</div>
+        <div style="margin-top:16px;">
+          <button id="generateBtn" class="primary">Generate diagram</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="outputPanel" hidden>
+    <div class="output-toolbar">
+      <span id="summaryText"></span>
+      <div class="spacer"></div>
+      <button id="tableToggleBtn">View as table</button>
+      <button id="downloadSvgBtn">Download SVG</button>
+      <button id="downloadPngBtn">Download PNG</button>
+      <span id="downloadStatus"></span>
+    </div>
+    <div id="chartWrap"><svg id="sankeySvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div id="tableWrap" hidden style="overflow-x:auto; border:1px solid var(--gridline); border-radius:8px; margin-top:12px;"><table id="dataTable"></table></div>
+  </section>
+</div>
+<div id="tooltip" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+  var SURFACE = '#fcfcfb';
+
+  var SAMPLE_CSV =
+    'Region,Product,Channel,Revenue\n' +
+    'North America,Widgets,Online,42000\n' +
+    'North America,Widgets,Retail,28000\n' +
+    'North America,Gadgets,Online,31000\n' +
+    'North America,Gadgets,Retail,15000\n' +
+    'Europe,Widgets,Online,26000\n' +
+    'Europe,Widgets,Retail,19000\n' +
+    'Europe,Gadgets,Online,22000\n' +
+    'Europe,Gadgets,Retail,9000\n' +
+    'Asia Pacific,Widgets,Online,33000\n' +
+    'Asia Pacific,Widgets,Retail,12000\n' +
+    'Asia Pacific,Gadgets,Online,27000\n' +
+    'Asia Pacific,Gadgets,Retail,8000\n' +
+    'Latin America,Widgets,Online,11000\n' +
+    'Latin America,Gadgets,Retail,6000\n';
+
+  var state = {
+    headers: [],
+    rows: [],
+    stageCols: [],
+    valueCol: null,
+    nodes: [],
+    links: []
+  };
+
+  var els = {
+    csvInput: document.getElementById('csvInput'),
+    parseStatus: document.getElementById('parseStatus'),
+    loadSampleBtn: document.getElementById('loadSampleBtn'),
+    uploadBtn: document.getElementById('uploadBtn'),
+    fileInput: document.getElementById('fileInput'),
+    configPanel: document.getElementById('configPanel'),
+    availableCols: document.getElementById('availableCols'),
+    stageList: document.getElementById('stageList'),
+    emptyStageMsg: document.getElementById('emptyStageMsg'),
+    valueSelect: document.getElementById('valueSelect'),
+    generateBtn: document.getElementById('generateBtn'),
+    outputPanel: document.getElementById('outputPanel'),
+    summaryText: document.getElementById('summaryText'),
+    chartWrap: document.getElementById('chartWrap'),
+    svg: document.getElementById('sankeySvg'),
+    tableToggleBtn: document.getElementById('tableToggleBtn'),
+    tableWrap: document.getElementById('tableWrap'),
+    dataTable: document.getElementById('dataTable'),
+    downloadSvgBtn: document.getElementById('downloadSvgBtn'),
+    downloadPngBtn: document.getElementById('downloadPngBtn'),
+    downloadStatus: document.getElementById('downloadStatus'),
+    tooltip: document.getElementById('tooltip')
+  };
+
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // ---------- CSV parsing ----------
+
+  function detectDelimiter(text) {
+    var firstLine = text.split(/\r\n|\n/, 1)[0] || '';
+    var tabs = (firstLine.match(/\t/g) || []).length;
+    var commas = (firstLine.match(/,/g) || []).length;
+    return tabs > commas ? '\t' : ',';
+  }
+
+  function parseDelimited(text, delimiter) {
+    var rows = [];
+    var row = [];
+    var field = '';
+    var inQuotes = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else {
+          field += c;
+        }
+      } else if (c === '"') {
+        inQuotes = true;
+      } else if (c === delimiter) {
+        row.push(field); field = '';
+      } else if (c === '\n') {
+        row.push(field); rows.push(row); row = []; field = '';
+      } else if (c === '\r') {
+        // ignore, \n handles the break
+      } else {
+        field += c;
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+    return rows.filter(function (r) { return !(r.length === 1 && r[0].trim() === ''); });
+  }
+
+  function parseCSV(text) {
+    var delimiter = detectDelimiter(text);
+    var rawRows = parseDelimited(text, delimiter);
+    if (!rawRows.length) return { headers: [], rows: [] };
+    var headers = rawRows[0].map(function (h) { return h.trim(); });
+    var rows = rawRows.slice(1)
+      .filter(function (r) { return r.some(function (v) { return v.trim() !== ''; }); })
+      .map(function (r) {
+        var obj = {};
+        headers.forEach(function (h, idx) { obj[h] = (r[idx] !== undefined ? r[idx] : '').trim(); });
+        return obj;
+      });
+    return { headers: headers, rows: rows };
+  }
+
+  function looksNumeric(col) {
+    var sample = state.rows.slice(0, 25);
+    if (!sample.length) return false;
+    var hits = 0;
+    sample.forEach(function (r) {
+      var v = (r[col] || '').replace(/[,$%]/g, '');
+      if (v !== '' && !isNaN(parseFloat(v)) && isFinite(v)) hits++;
+    });
+    return hits / sample.length > 0.8;
+  }
+
+  // ---------- UI: parsing & column setup ----------
+
+  function handleParse(text) {
+    if (!text || !text.trim()) {
+      els.configPanel.hidden = true;
+      els.outputPanel.hidden = true;
+      setStatus('', false);
+      return;
+    }
+    var parsed = parseCSV(text);
+    if (!parsed.headers.length || !parsed.rows.length) {
+      setStatus('Could not find any data rows. Make sure the first line is a header row.', true);
+      els.configPanel.hidden = true;
+      return;
+    }
+    state.headers = parsed.headers;
+    state.rows = parsed.rows;
+    setStatus(parsed.rows.length.toLocaleString() + ' rows × ' + parsed.headers.length + ' columns detected.', false);
+    buildColumnPickers();
+    els.configPanel.hidden = false;
+    els.outputPanel.hidden = true;
+  }
+
+  function setStatus(msg, isError) {
+    els.parseStatus.textContent = msg;
+    els.parseStatus.classList.toggle('error', !!isError);
+  }
+
+  function buildColumnPickers() {
+    state.stageCols = [];
+    els.availableCols.innerHTML = '';
+    els.stageList.innerHTML = '';
+    els.emptyStageMsg.hidden = false;
+
+    state.headers.forEach(function (col) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = col;
+      chip.addEventListener('click', function () { addStage(col); });
+      els.availableCols.appendChild(chip);
+    });
+
+    els.valueSelect.innerHTML = '';
+    var countOpt = document.createElement('option');
+    countOpt.value = '';
+    countOpt.textContent = 'Count rows (each row = 1)';
+    els.valueSelect.appendChild(countOpt);
+
+    var firstNumeric = null;
+    state.headers.forEach(function (col) {
+      var opt = document.createElement('option');
+      opt.value = col;
+      opt.textContent = col;
+      els.valueSelect.appendChild(opt);
+      if (firstNumeric === null && looksNumeric(col)) firstNumeric = col;
+    });
+    els.valueSelect.value = firstNumeric || '';
+    state.valueCol = els.valueSelect.value || null;
+
+    refreshStageUI();
+  }
+
+  function addStage(col) {
+    if (state.stageCols.indexOf(col) !== -1) return;
+    state.stageCols.push(col);
+    refreshStageUI();
+  }
+
+  function removeStage(col) {
+    var idx = state.stageCols.indexOf(col);
+    if (idx !== -1) state.stageCols.splice(idx, 1);
+    refreshStageUI();
+  }
+
+  function moveStage(col, dir) {
+    var idx = state.stageCols.indexOf(col);
+    var newIdx = idx + dir;
+    if (idx === -1 || newIdx < 0 || newIdx >= state.stageCols.length) return;
+    var tmp = state.stageCols[idx];
+    state.stageCols[idx] = state.stageCols[newIdx];
+    state.stageCols[newIdx] = tmp;
+    refreshStageUI();
+  }
+
+  function refreshStageUI() {
+    Array.prototype.forEach.call(els.availableCols.children, function (chip) {
+      chip.style.display = state.stageCols.indexOf(chip.textContent) !== -1 ? 'none' : '';
+    });
+
+    els.stageList.innerHTML = '';
+    state.stageCols.forEach(function (col, i) {
+      var li = document.createElement('li');
+
+      var idxEl = document.createElement('span');
+      idxEl.className = 'stage-index';
+      idxEl.textContent = (i + 1) + '.';
+      li.appendChild(idxEl);
+
+      var nameEl = document.createElement('span');
+      nameEl.className = 'stage-name';
+      nameEl.textContent = col;
+      li.appendChild(nameEl);
+
+      var upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.textContent = '↑';
+      upBtn.disabled = i === 0;
+      upBtn.addEventListener('click', function () { moveStage(col, -1); });
+      li.appendChild(upBtn);
+
+      var downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.textContent = '↓';
+      downBtn.disabled = i === state.stageCols.length - 1;
+      downBtn.addEventListener('click', function () { moveStage(col, 1); });
+      li.appendChild(downBtn);
+
+      var rmBtn = document.createElement('button');
+      rmBtn.type = 'button';
+      rmBtn.textContent = '×';
+      rmBtn.addEventListener('click', function () { removeStage(col); });
+      li.appendChild(rmBtn);
+
+      els.stageList.appendChild(li);
+    });
+
+    els.emptyStageMsg.hidden = state.stageCols.length > 0;
+    els.generateBtn.disabled = state.stageCols.length < 2;
+  }
+
+  // ---------- Building the node/link graph ----------
+
+  function buildGraph(rows, stageCols, valueCol) {
+    var nodeIndex = {};
+    var nodes = [];
+    var linkIndex = {};
+    var links = [];
+    var totalValue = 0;
+    var skipped = 0;
+
+    rows.forEach(function (row) {
+      var value = 1;
+      if (valueCol) {
+        var raw = (row[valueCol] || '').replace(/[,$%]/g, '');
+        value = parseFloat(raw);
+        if (!isFinite(value)) value = NaN;
+      }
+      if (!value || value <= 0 || isNaN(value)) { skipped++; return; }
+
+      for (var i = 0; i < stageCols.length - 1; i++) {
+        var srcLabelRaw = row[stageCols[i]];
+        var tgtLabelRaw = row[stageCols[i + 1]];
+        var srcLabel = (srcLabelRaw && srcLabelRaw.trim()) || '(blank)';
+        var tgtLabel = (tgtLabelRaw && tgtLabelRaw.trim()) || '(blank)';
+        var srcId = i + ':' + srcLabel;
+        var tgtId = (i + 1) + ':' + tgtLabel;
+
+        if (!(srcId in nodeIndex)) {
+          nodeIndex[srcId] = nodes.length;
+          nodes.push({ id: srcId, label: srcLabel, stage: i, value: 0 });
+        }
+        if (!(tgtId in nodeIndex)) {
+          nodeIndex[tgtId] = nodes.length;
+          nodes.push({ id: tgtId, label: tgtLabel, stage: i + 1, value: 0 });
+        }
+
+        var linkKey = srcId + '->' + tgtId;
+        if (!(linkKey in linkIndex)) {
+          linkIndex[linkKey] = links.length;
+          links.push({ source: nodeIndex[srcId], target: nodeIndex[tgtId], value: 0 });
+        }
+        links[linkIndex[linkKey]].value += value;
+      }
+      totalValue += value;
+    });
+
+    return { nodes: nodes, links: links, totalValue: totalValue, skipped: skipped };
+  }
+
+  // ---------- Layout ----------
+
+  function computeLayout(nodes, links, width, height) {
+    var nodeWidth = 20;
+    var padding = 8;
+    var labelMargin = 130;
+
+    var stages = {};
+    nodes.forEach(function (n) { (stages[n.stage] = stages[n.stage] || []).push(n); });
+    var stageIndices = Object.keys(stages).map(Number).sort(function (a, b) { return a - b; });
+    var stageCount = stageIndices.length;
+
+    var innerWidth = Math.max(width - labelMargin * 2 - nodeWidth, 40);
+    var xStep = stageCount > 1 ? innerWidth / (stageCount - 1) : 0;
+
+    stageIndices.forEach(function (s, i) {
+      var x0 = labelMargin + i * xStep;
+      stages[s].forEach(function (n) { n.x0 = x0; n.x1 = x0 + nodeWidth; });
+    });
+
+    links.forEach(function (l) {
+      nodes[l.source].value += l.value;
+      nodes[l.target].value += l.value;
+    });
+    nodes.forEach(function (n) {
+      var out = links.filter(function (l) { return l.source === nodes.indexOf(n); }).reduce(function (s, l) { return s + l.value; }, 0);
+      var inc = links.filter(function (l) { return l.target === nodes.indexOf(n); }).reduce(function (s, l) { return s + l.value; }, 0);
+      n.value = Math.max(out, inc);
+    });
+
+    var maxTotal = 0;
+    stageIndices.forEach(function (s) {
+      var total = stages[s].reduce(function (sum, n) { return sum + n.value; }, 0);
+      if (total > maxTotal) maxTotal = total;
+    });
+
+    var maxNodesInStage = Math.max.apply(null, stageIndices.map(function (s) { return stages[s].length; }));
+    var availableHeight = Math.max(height - padding * (maxNodesInStage - 1), maxNodesInStage);
+    var scale = maxTotal > 0 ? availableHeight / maxTotal : 1;
+
+    stageIndices.forEach(function (s) {
+      var stageNodes = stages[s].slice().sort(function (a, b) { return b.value - a.value; });
+      var usedHeight = stageNodes.reduce(function (sum, n) { return sum + Math.max(n.value * scale, 1); }, 0) + padding * (stageNodes.length - 1);
+      var cursor = Math.max((height - usedHeight) / 2, 0);
+      stageNodes.forEach(function (n) {
+        var h = Math.max(n.value * scale, 1);
+        n.y0 = cursor;
+        n.y1 = cursor + h;
+        cursor += h + padding;
+      });
+    });
+
+    nodes.forEach(function (n, idx) {
+      n._sy = n.y0;
+      n._ty = n.y0;
+      n.color = CATEGORICAL[idx % CATEGORICAL.length];
+    });
+
+    var outgoingByNode = {};
+    var incomingByNode = {};
+    nodes.forEach(function (n, i) { outgoingByNode[i] = []; incomingByNode[i] = []; });
+    links.forEach(function (l) { outgoingByNode[l.source].push(l); incomingByNode[l.target].push(l); });
+
+    nodes.forEach(function (n, i) {
+      outgoingByNode[i].sort(function (a, b) { return nodes[a.target].y0 - nodes[b.target].y0; });
+      incomingByNode[i].sort(function (a, b) { return nodes[a.source].y0 - nodes[b.source].y0; });
+    });
+
+    links.forEach(function (l) {
+      var srcNode = nodes[l.source];
+      var tgtNode = nodes[l.target];
+      var h = Math.max(l.value * scale, 1);
+      l.width = h;
+      l.y0 = srcNode._sy + h / 2;
+      srcNode._sy += h;
+      l.y1 = tgtNode._ty + h / 2;
+      tgtNode._ty += h;
+      l.x0 = srcNode.x1;
+      l.x1 = tgtNode.x0;
+      l.sourceColor = srcNode.color;
+      l.targetColor = tgtNode.color;
+    });
+
+    return { nodeWidth: nodeWidth, stageCount: stageCount };
+  }
+
+  // ---------- Rendering ----------
+
+  function el(tag, attrs) {
+    var e = document.createElementNS(SVG_NS, tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    }
+    return e;
+  }
+
+  function formatValue(v) {
+    if (Math.abs(v) >= 1000000) return (v / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (Math.abs(v) >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return Math.round(v * 100) / 100 + '';
+  }
+
+  function formatValuePrecise(v) {
+    return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+
+  function render() {
+    var graph = buildGraph(state.rows, state.stageCols, state.valueCol);
+    if (!graph.links.length) {
+      setStatus('No usable rows for the selected columns (check the value column).', true);
+      return;
+    }
+    state.nodes = graph.nodes;
+    state.links = graph.links;
+
+    var containerWidth = els.chartWrap.clientWidth || 900;
+    var width = Math.max(containerWidth, 640);
+    var maxStageCount = new Set(graph.nodes.map(function (n) { return n.stage; })).size;
+    var maxNodesInAnyStage = Math.max.apply(null, Object.values(
+      graph.nodes.reduce(function (acc, n) { acc[n.stage] = (acc[n.stage] || 0) + 1; return acc; }, {})
+    ));
+    var height = Math.min(820, Math.max(440, maxNodesInAnyStage * 42));
+
+    var layout = computeLayout(graph.nodes, graph.links, width, height);
+
+    var svg = els.svg;
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+
+    var defs = el('defs');
+    svg.appendChild(defs);
+
+    var linkGroup = el('g', { class: 'links' });
+    var nodeGroup = el('g', { class: 'nodes' });
+    var labelGroup = el('g', { class: 'labels' });
+    svg.appendChild(linkGroup);
+    svg.appendChild(nodeGroup);
+    svg.appendChild(labelGroup);
+
+    graph.links.forEach(function (l, i) {
+      var gradId = 'sankey-grad-' + i;
+      var grad = el('linearGradient', {
+        id: gradId,
+        gradientUnits: 'userSpaceOnUse',
+        x1: l.x0, y1: l.y0, x2: l.x1, y2: l.y1
+      });
+      var stop1 = el('stop', { offset: '0%' });
+      stop1.setAttribute('stop-color', l.sourceColor);
+      var stop2 = el('stop', { offset: '100%' });
+      stop2.setAttribute('stop-color', l.targetColor);
+      grad.appendChild(stop1);
+      grad.appendChild(stop2);
+      defs.appendChild(grad);
+
+      var xm = (l.x0 + l.x1) / 2;
+      var d = 'M' + l.x0 + ',' + l.y0 + ' C' + xm + ',' + l.y0 + ' ' + xm + ',' + l.y1 + ' ' + l.x1 + ',' + l.y1;
+      var path = el('path', {
+        d: d,
+        class: 'sankey-link',
+        stroke: 'url(#' + gradId + ')',
+        'stroke-width': l.width,
+        'stroke-opacity': 0.55
+      });
+      path.addEventListener('mousemove', function (evt) {
+        showTooltip(evt, graph.nodes[l.source].label + ' → ' + graph.nodes[l.target].label + ': ' + formatValuePrecise(l.value));
+        path.setAttribute('stroke-opacity', 0.85);
+      });
+      path.addEventListener('mouseleave', function () {
+        hideTooltip();
+        path.setAttribute('stroke-opacity', 0.55);
+      });
+      linkGroup.appendChild(path);
+    });
+
+    graph.nodes.forEach(function (n) {
+      var rect = el('rect', {
+        class: 'sankey-node',
+        x: n.x0, y: n.y0,
+        width: n.x1 - n.x0, height: Math.max(n.y1 - n.y0, 1),
+        rx: 2,
+        fill: n.color
+      });
+      rect.addEventListener('mousemove', function (evt) {
+        showTooltip(evt, n.label + ': ' + formatValuePrecise(n.value));
+      });
+      rect.addEventListener('mouseleave', hideTooltip);
+      nodeGroup.appendChild(rect);
+
+      var isLeftHalf = n.x0 < width / 2;
+      var labelX = isLeftHalf ? n.x1 + 8 : n.x0 - 8;
+      var anchor = isLeftHalf ? 'start' : 'end';
+      var midY = (n.y0 + n.y1) / 2;
+
+      var text = el('text', {
+        class: 'node-label',
+        x: labelX, y: midY - 3,
+        'text-anchor': anchor
+      });
+      text.textContent = n.label;
+      labelGroup.appendChild(text);
+
+      var valueText = el('text', {
+        class: 'node-value',
+        x: labelX, y: midY + 11,
+        'text-anchor': anchor
+      });
+      valueText.textContent = formatValue(n.value);
+      labelGroup.appendChild(valueText);
+    });
+
+    els.summaryText.textContent = graph.nodes.length + ' nodes · ' + graph.links.length + ' flows · total value ' + formatValuePrecise(graph.totalValue) +
+      (graph.skipped ? ' · ' + graph.skipped + ' rows skipped (missing/non-numeric value)' : '');
+
+    renderTable(graph);
+    els.outputPanel.hidden = false;
+  }
+
+  function renderTable(graph) {
+    var table = els.dataTable;
+    table.innerHTML = '';
+    var thead = document.createElement('thead');
+    var headRow = document.createElement('tr');
+    ['Source', 'Target', 'Value'].forEach(function (h) {
+      var th = document.createElement('th');
+      th.textContent = h;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    graph.links.slice().sort(function (a, b) { return b.value - a.value; }).forEach(function (l) {
+      var tr = document.createElement('tr');
+      var srcTd = document.createElement('td');
+      srcTd.textContent = graph.nodes[l.source].label;
+      var tgtTd = document.createElement('td');
+      tgtTd.textContent = graph.nodes[l.target].label;
+      var valTd = document.createElement('td');
+      valTd.textContent = formatValuePrecise(l.value);
+      tr.appendChild(srcTd); tr.appendChild(tgtTd); tr.appendChild(valTd);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+  }
+
+  function showTooltip(evt, text) {
+    els.tooltip.textContent = text;
+    els.tooltip.hidden = false;
+    els.tooltip.style.left = (evt.clientX + 14) + 'px';
+    els.tooltip.style.top = (evt.clientY + 14) + 'px';
+  }
+  function hideTooltip() { els.tooltip.hidden = true; }
+
+  // ---------- Download ----------
+
+  var claudeDownloads = null;
+  (async function initDownloads() {
+    try { claudeDownloads = await window.claude.use('downloads'); }
+    catch (e) { claudeDownloads = null; }
+  })();
+
+  var downloadNoteTimer = null;
+  function showDownloadNote(msg, isError) {
+    var noteEl = els.downloadStatus;
+    noteEl.textContent = msg;
+    noteEl.classList.toggle('error', !!isError);
+    clearTimeout(downloadNoteTimer);
+    downloadNoteTimer = setTimeout(function () { noteEl.textContent = ''; }, 5000);
+  }
+
+  function offerFile(filename, data, fallback) {
+    if (claudeDownloads) {
+      claudeDownloads.save({ filename: filename, data: data }).then(function () {
+        showDownloadNote('Saved ' + filename + '.', false);
+      }, function (err) {
+        var code = err && err.code;
+        if (code === 'declined') return;
+        if (code === 'extension_not_enabled' || code === 'rejected_extension') {
+          showDownloadNote('This file type can’t be saved from this preview — try Download PNG, or open the tool as a local file for full export options.', true);
+        } else {
+          showDownloadNote('Download failed (' + (code || 'unknown error') + '). Try again.', true);
+        }
+      });
+      return;
+    }
+    fallback();
+  }
+
+  function blobDownloadFallback(filename, blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  function downloadSVG() {
+    var svg = els.svg;
+    var clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', SVG_NS);
+    var data = new XMLSerializer().serializeToString(clone);
+    offerFile('sankey-diagram.svg', data, function () {
+      blobDownloadFallback('sankey-diagram.svg', new Blob([data], { type: 'image/svg+xml' }));
+    });
+  }
+
+  function downloadPNG() {
+    var svg = els.svg;
+    var vb = svg.viewBox.baseVal;
+    var scale = 2;
+    var clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', SVG_NS);
+    var data = new XMLSerializer().serializeToString(clone);
+    var blob = new Blob([data], { type: 'image/svg+xml;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = vb.width * scale;
+      canvas.height = vb.height * scale;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = SURFACE;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function (pngBlob) {
+        offerFile('sankey-diagram.png', pngBlob, function () {
+          blobDownloadFallback('sankey-diagram.png', pngBlob);
+        });
+      });
+    };
+    img.onerror = function () { showDownloadNote('PNG export failed in this browser — try "Download SVG" instead.', true); };
+    img.src = url;
+  }
+
+  // ---------- Wiring ----------
+
+  var parseTimer = null;
+  els.csvInput.addEventListener('input', function () {
+    clearTimeout(parseTimer);
+    parseTimer = setTimeout(function () { handleParse(els.csvInput.value); }, 250);
+  });
+
+  els.loadSampleBtn.addEventListener('click', function () {
+    els.csvInput.value = SAMPLE_CSV;
+    handleParse(SAMPLE_CSV);
+  });
+
+  els.uploadBtn.addEventListener('click', function () { els.fileInput.click(); });
+  els.fileInput.addEventListener('change', function () {
+    var file = els.fileInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      els.csvInput.value = reader.result;
+      handleParse(reader.result);
+    };
+    reader.readAsText(file);
+  });
+
+  els.valueSelect.addEventListener('change', function () {
+    state.valueCol = els.valueSelect.value || null;
+  });
+
+  els.generateBtn.addEventListener('click', function () {
+    if (state.stageCols.length < 2) return;
+    render();
+  });
+
+  els.tableToggleBtn.addEventListener('click', function () {
+    var showingTable = !els.tableWrap.hidden;
+    els.tableWrap.hidden = showingTable;
+    els.chartWrap.hidden = !showingTable;
+    els.tableToggleBtn.textContent = showingTable ? 'View as table' : 'View as diagram';
+  });
+
+  els.downloadSvgBtn.addEventListener('click', downloadSVG);
+  els.downloadPngBtn.addEventListener('click', downloadPNG);
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (!els.outputPanel.hidden && els.tableWrap.hidden) render();
+    }, 200);
+  });
+})();
+</script>
+</body>
+</html>
