@@ -186,6 +186,19 @@
   #summaryText { font-size: 13px; color: var(--text-secondary); }
   #downloadStatus { font-size: 12.5px; color: var(--text-secondary); }
   #downloadStatus.error { color: var(--danger); }
+  .style-label {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    font-weight: 550;
+  }
+  select#styleSelect {
+    padding: 7px 9px;
+    border-radius: 7px;
+    border: 1px solid var(--gridline);
+    font-size: 13px;
+    background: var(--surface-1);
+    color: var(--text-primary);
+  }
   #chartWrap {
     width: 100%;
     overflow-x: auto;
@@ -248,7 +261,7 @@
 <div class="app">
   <header>
     <h1>Sankey Diagram Generator</h1>
-    <p>Paste CSV (or tab-separated) data, choose the columns that define each flow stage, and generate a colorful Sankey diagram you can drop straight into a deck. Everything runs locally in your browser — nothing is uploaded anywhere.</p>
+    <p>Paste CSV (or tab-separated) data — one row per record, or already-summarized — pick which attribute columns become stages, and this pivots it into a colorful Sankey diagram you can drop straight into a deck. Matching rows are grouped and summed automatically. Everything runs locally in your browser — nothing is uploaded anywhere.</p>
   </header>
 
   <section class="panel">
@@ -263,18 +276,18 @@
   </section>
 
   <section class="panel" id="configPanel" hidden>
-    <h3>2. Flow columns</h3>
+    <h3>2. Attributes to pivot</h3>
     <div class="config-grid">
       <div>
-        <div class="hint" style="margin-bottom:8px;">Click columns below, in order, to build the flow path (e.g. Region → Product → Channel). At least 2 required.</div>
+        <div class="hint" style="margin-bottom:8px;">Click attribute columns below, in the order you want them left → right (e.g. Color → Manufacturer). Rows sharing the same combination are grouped into one flow. At least 2 required.</div>
         <div id="availableCols" class="chip-list"></div>
         <ol id="stageList"></ol>
         <div id="emptyStageMsg">No stages selected yet.</div>
       </div>
       <div>
-        <h3 style="margin-top:0;">Flow value</h3>
+        <h3 style="margin-top:0;">Quantity column</h3>
         <select id="valueSelect"></select>
-        <div class="hint">Numeric column that sizes each flow's thickness. Leave as "Count rows" to size by number of matching rows.</div>
+        <div class="hint">Numeric column to sum for each group (e.g. Revenue, Units). Leave as "Count rows" if each row is one unit and there's nothing to sum — matching rows are simply counted.</div>
         <div style="margin-top:16px;">
           <button id="generateBtn" class="primary">Generate diagram</button>
         </div>
@@ -286,6 +299,14 @@
     <div class="output-toolbar">
       <span id="summaryText"></span>
       <div class="spacer"></div>
+      <label for="styleSelect" class="style-label">Style</label>
+      <select id="styleSelect">
+        <option value="gradient">Gradient (source → target)</option>
+        <option value="source">Solid — source color</option>
+        <option value="target">Solid — target color</option>
+        <option value="stage">By stage</option>
+        <option value="monochrome">Monochrome</option>
+      </select>
       <button id="tableToggleBtn">View as table</button>
       <button id="downloadSvgBtn">Download SVG</button>
       <button id="downloadPngBtn">Download PNG</button>
@@ -327,7 +348,8 @@
     stageCols: [],
     valueCol: null,
     nodes: [],
-    links: []
+    links: [],
+    style: 'gradient'
   };
 
   var els = {
@@ -344,6 +366,7 @@
     generateBtn: document.getElementById('generateBtn'),
     outputPanel: document.getElementById('outputPanel'),
     summaryText: document.getElementById('summaryText'),
+    styleSelect: document.getElementById('styleSelect'),
     chartWrap: document.getElementById('chartWrap'),
     svg: document.getElementById('sankeySvg'),
     tableToggleBtn: document.getElementById('tableToggleBtn'),
@@ -604,7 +627,9 @@
 
   // ---------- Layout ----------
 
-  function computeLayout(nodes, links, width, height) {
+  var MONO_COLOR = '#2a78d6';
+
+  function computeLayout(nodes, links, width, height, style) {
     var nodeWidth = 20;
     var padding = 8;
     var labelMargin = 130;
@@ -657,7 +682,13 @@
     nodes.forEach(function (n, idx) {
       n._sy = n.y0;
       n._ty = n.y0;
-      n.color = CATEGORICAL[idx % CATEGORICAL.length];
+      if (style === 'monochrome') {
+        n.color = MONO_COLOR;
+      } else if (style === 'stage') {
+        n.color = CATEGORICAL[n.stage % CATEGORICAL.length];
+      } else {
+        n.color = CATEGORICAL[idx % CATEGORICAL.length];
+      }
     });
 
     var outgoingByNode = {};
@@ -725,7 +756,7 @@
     ));
     var height = Math.min(820, Math.max(440, maxNodesInAnyStage * 42));
 
-    var layout = computeLayout(graph.nodes, graph.links, width, height);
+    var layout = computeLayout(graph.nodes, graph.links, width, height, state.style);
 
     var svg = els.svg;
     svg.innerHTML = '';
@@ -742,36 +773,47 @@
     svg.appendChild(labelGroup);
 
     graph.links.forEach(function (l, i) {
-      var gradId = 'sankey-grad-' + i;
-      var grad = el('linearGradient', {
-        id: gradId,
-        gradientUnits: 'userSpaceOnUse',
-        x1: l.x0, y1: l.y0, x2: l.x1, y2: l.y1
-      });
-      var stop1 = el('stop', { offset: '0%' });
-      stop1.setAttribute('stop-color', l.sourceColor);
-      var stop2 = el('stop', { offset: '100%' });
-      stop2.setAttribute('stop-color', l.targetColor);
-      grad.appendChild(stop1);
-      grad.appendChild(stop2);
-      defs.appendChild(grad);
+      var strokeValue;
+      if (state.style === 'gradient') {
+        var gradId = 'sankey-grad-' + i;
+        var grad = el('linearGradient', {
+          id: gradId,
+          gradientUnits: 'userSpaceOnUse',
+          x1: l.x0, y1: l.y0, x2: l.x1, y2: l.y1
+        });
+        var stop1 = el('stop', { offset: '0%' });
+        stop1.setAttribute('stop-color', l.sourceColor);
+        var stop2 = el('stop', { offset: '100%' });
+        stop2.setAttribute('stop-color', l.targetColor);
+        grad.appendChild(stop1);
+        grad.appendChild(stop2);
+        defs.appendChild(grad);
+        strokeValue = 'url(#' + gradId + ')';
+      } else if (state.style === 'target') {
+        strokeValue = l.targetColor;
+      } else {
+        strokeValue = l.sourceColor;
+      }
+
+      var baseOpacity = state.style === 'monochrome' ? 0.3 : 0.55;
+      var hoverOpacity = state.style === 'monochrome' ? 0.55 : 0.85;
 
       var xm = (l.x0 + l.x1) / 2;
       var d = 'M' + l.x0 + ',' + l.y0 + ' C' + xm + ',' + l.y0 + ' ' + xm + ',' + l.y1 + ' ' + l.x1 + ',' + l.y1;
       var path = el('path', {
         d: d,
         class: 'sankey-link',
-        stroke: 'url(#' + gradId + ')',
+        stroke: strokeValue,
         'stroke-width': l.width,
-        'stroke-opacity': 0.55
+        'stroke-opacity': baseOpacity
       });
       path.addEventListener('mousemove', function (evt) {
         showTooltip(evt, graph.nodes[l.source].label + ' → ' + graph.nodes[l.target].label + ': ' + formatValuePrecise(l.value));
-        path.setAttribute('stroke-opacity', 0.85);
+        path.setAttribute('stroke-opacity', hoverOpacity);
       });
       path.addEventListener('mouseleave', function () {
         hideTooltip();
-        path.setAttribute('stroke-opacity', 0.55);
+        path.setAttribute('stroke-opacity', baseOpacity);
       });
       linkGroup.appendChild(path);
     });
@@ -971,6 +1013,11 @@
   els.generateBtn.addEventListener('click', function () {
     if (state.stageCols.length < 2) return;
     render();
+  });
+
+  els.styleSelect.addEventListener('change', function () {
+    state.style = els.styleSelect.value;
+    if (!els.outputPanel.hidden) render();
   });
 
   els.tableToggleBtn.addEventListener('click', function () {

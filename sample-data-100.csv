@@ -1,0 +1,101 @@
+Region,Product Category,Channel,Customer Segment,Payment Method,Revenue
+North America,Sporting Goods,Online,Small Business,Cash,998
+North America,Sporting Goods,Wholesale,Small Business,Bank Transfer,3493
+North America,Electronics,Wholesale,Small Business,Bank Transfer,271
+North America,Electronics,Retail,Small Business,Credit Card,1330
+Europe,Home Goods,Retail,Small Business,PayPal,4083
+Asia Pacific,Home Goods,Retail,Enterprise,Credit Card,2725
+Latin America,Toys,Retail,Consumer,PayPal,235
+Latin America,Apparel,Online,Enterprise,Bank Transfer,672
+North America,Home Goods,Retail,Small Business,PayPal,732
+North America,Home Goods,Online,Consumer,Credit Card,1172
+Latin America,Sporting Goods,Wholesale,Small Business,Bank Transfer,2591
+Europe,Sporting Goods,Wholesale,Enterprise,Cash,2367
+North America,Home Goods,Online,Enterprise,PayPal,1279
+Asia Pacific,Electronics,Retail,Small Business,Credit Card,2909
+Latin America,Home Goods,Retail,Consumer,Credit Card,716
+Latin America,Sporting Goods,Online,Consumer,Credit Card,892
+Latin America,Sporting Goods,Online,Consumer,Credit Card,3063
+Latin America,Apparel,Online,Enterprise,Cash,424
+Europe,Home Goods,Online,Enterprise,PayPal,1355
+North America,Home Goods,Retail,Small Business,Credit Card,3644
+Latin America,Home Goods,Retail,Small Business,Bank Transfer,606
+Europe,Toys,Wholesale,Enterprise,Credit Card,1331
+Latin America,Home Goods,Wholesale,Consumer,Cash,4190
+Europe,Sporting Goods,Wholesale,Small Business,Bank Transfer,3793
+Europe,Home Goods,Retail,Consumer,Bank Transfer,3489
+Asia Pacific,Home Goods,Wholesale,Small Business,PayPal,1653
+Latin America,Electronics,Online,Small Business,PayPal,2129
+Latin America,Electronics,Online,Small Business,Bank Transfer,2365
+Europe,Sporting Goods,Wholesale,Consumer,Bank Transfer,2221
+Europe,Home Goods,Retail,Consumer,Bank Transfer,879
+Asia Pacific,Apparel,Wholesale,Small Business,Bank Transfer,2426
+Asia Pacific,Sporting Goods,Retail,Consumer,Cash,314
+Europe,Home Goods,Wholesale,Small Business,Cash,1028
+Latin America,Toys,Retail,Enterprise,PayPal,3907
+Latin America,Toys,Retail,Small Business,PayPal,2668
+Latin America,Home Goods,Wholesale,Small Business,Credit Card,466
+Latin America,Toys,Online,Small Business,Bank Transfer,3748
+Europe,Electronics,Wholesale,Enterprise,Cash,1581
+North America,Electronics,Online,Enterprise,Credit Card,3469
+Asia Pacific,Toys,Retail,Consumer,Bank Transfer,4079
+Asia Pacific,Home Goods,Retail,Small Business,Cash,1009
+North America,Toys,Online,Consumer,PayPal,1479
+Asia Pacific,Apparel,Retail,Consumer,Cash,3994
+Asia Pacific,Home Goods,Wholesale,Enterprise,PayPal,2789
+North America,Sporting Goods,Wholesale,Enterprise,Cash,217
+North America,Home Goods,Wholesale,Small Business,Credit Card,2581
+North America,Home Goods,Online,Small Business,Bank Transfer,1637
+North America,Electronics,Wholesale,Enterprise,PayPal,3865
+Asia Pacific,Home Goods,Wholesale,Consumer,Bank Transfer,1675
+Europe,Sporting Goods,Retail,Enterprise,Cash,1675
+Latin America,Apparel,Online,Enterprise,PayPal,1910
+North America,Home Goods,Retail,Consumer,PayPal,2789
+North America,Sporting Goods,Wholesale,Enterprise,Cash,3710
+Asia Pacific,Toys,Retail,Small Business,Cash,2699
+Asia Pacific,Electronics,Wholesale,Enterprise,PayPal,606
+North America,Electronics,Online,Enterprise,Cash,662
+Europe,Sporting Goods,Online,Consumer,Cash,2091
+Latin America,Apparel,Online,Small Business,PayPal,712
+Europe,Toys,Wholesale,Consumer,Bank Transfer,334
+North America,Sporting Goods,Online,Small Business,Credit Card,3834
+Asia Pacific,Sporting Goods,Wholesale,Enterprise,Credit Card,1412
+Europe,Sporting Goods,Retail,Enterprise,PayPal,2597
+Latin America,Apparel,Wholesale,Consumer,Bank Transfer,1822
+North America,Electronics,Wholesale,Enterprise,Credit Card,606
+Europe,Toys,Online,Consumer,Credit Card,2287
+Asia Pacific,Toys,Online,Consumer,Bank Transfer,3744
+North America,Apparel,Wholesale,Small Business,Credit Card,3065
+Asia Pacific,Electronics,Retail,Small Business,Bank Transfer,2128
+Latin America,Home Goods,Retail,Small Business,Cash,2595
+Europe,Home Goods,Wholesale,Enterprise,PayPal,3680
+Europe,Apparel,Wholesale,Enterprise,Credit Card,916
+North America,Home Goods,Wholesale,Enterprise,Cash,97
+Europe,Electronics,Retail,Consumer,Credit Card,782
+North America,Electronics,Retail,Small Business,Bank Transfer,3853
+Asia Pacific,Toys,Wholesale,Enterprise,Credit Card,3679
+Asia Pacific,Sporting Goods,Wholesale,Small Business,Credit Card,2206
+Europe,Electronics,Retail,Consumer,PayPal,3027
+North America,Home Goods,Retail,Small Business,Bank Transfer,3917
+Europe,Toys,Online,Enterprise,Credit Card,2098
+Europe,Sporting Goods,Retail,Enterprise,Credit Card,2308
+Latin America,Sporting Goods,Online,Consumer,Credit Card,3116
+Latin America,Apparel,Wholesale,Enterprise,Bank Transfer,313
+Latin America,Home Goods,Wholesale,Consumer,Bank Transfer,3184
+Asia Pacific,Home Goods,Online,Consumer,Bank Transfer,1365
+Latin America,Home Goods,Online,Small Business,Bank Transfer,3146
+North America,Home Goods,Wholesale,Consumer,Credit Card,4029
+Latin America,Toys,Wholesale,Consumer,PayPal,2730
+Latin America,Apparel,Wholesale,Enterprise,Cash,910
+Latin America,Electronics,Retail,Consumer,Credit Card,4119
+Europe,Sporting Goods,Online,Small Business,Credit Card,1932
+Europe,Apparel,Retail,Enterprise,Bank Transfer,2819
+North America,Apparel,Wholesale,Enterprise,Bank Transfer,3062
+Latin America,Home Goods,Online,Enterprise,Cash,3974
+Latin America,Electronics,Wholesale,Small Business,Bank Transfer,3590
+Asia Pacific,Electronics,Retail,Consumer,PayPal,1771
+Asia Pacific,Toys,Online,Enterprise,Bank Transfer,333
+North America,Sporting Goods,Online,Small Business,Credit Card,2821
+Latin America,Electronics,Wholesale,Small Business,Cash,3118
+North America,Toys,Online,Enterprise,Cash,452
+Asia Pacific,Apparel,Online,Small Business,Bank Transfer,741
